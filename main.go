@@ -1,10 +1,15 @@
 package main
 
 import (
+	"context"
 	"fmt"
+	"log"
 	"log/slog"
 	"net"
 	"os"
+	"time"
+
+	"github.com/ezratameno/goredis/client"
 )
 
 func main() {
@@ -32,6 +37,8 @@ type Server struct {
 	addPeerCh chan *Peer
 
 	quitCh chan struct{}
+
+	msgCh chan []byte
 }
 
 func NewServer(cfg Config) *Server {
@@ -45,6 +52,7 @@ func NewServer(cfg Config) *Server {
 		peers:     make(map[*Peer]bool),
 		addPeerCh: make(chan *Peer),
 		quitCh:    make(chan struct{}),
+		msgCh:     make(chan []byte),
 	}
 }
 
@@ -65,6 +73,7 @@ func (s *Server) Start() error {
 
 }
 
+// acceptLoop listens to new connections to the server.
 func (s *Server) acceptLoop() error {
 
 	for {
@@ -88,24 +97,51 @@ func (s *Server) loop() {
 		select {
 		case <-s.quitCh:
 			return
+
 		// Add the peer
 		case peer := <-s.addPeerCh:
 			s.peers[peer] = true
 
+		// Read from the peers
+		case rawMsg := <-s.msgCh:
+
+			err := s.handleRawMessage(rawMsg)
+			if err != nil {
+				slog.Error("raw message error", "err", err)
+			}
 		}
 	}
 
 }
 
+// handleRawMessage handles the raw message from the peer.
+func (s *Server) handleRawMessage(rawMsg []byte) error {
+
+	cmd, err := parseCommand(string(rawMsg))
+	if err != nil {
+		return err
+	}
+
+	// check the type of the command
+	switch v := cmd.(type) {
+	case SetCommand:
+
+		slog.Info("somebody want to set a key to the hash table", "key", v.key, "val", v.val)
+	}
+
+	return nil
+}
+
+// handleConn creates a peer from the connection and read from him.
 func (s *Server) handleConn(conn net.Conn) {
 
 	// Add the peer
-	peer := NewPeer(conn)
+	peer := NewPeer(conn, s.msgCh)
 	s.addPeerCh <- peer
 
 	slog.Info("new peer connected", "remoteAddr", peer.conn.RemoteAddr())
 
-	// read for the new peer
+	// read from the new peer
 	err := peer.readLoop()
 	if err != nil {
 		slog.Error("peer read error", "err", err)
@@ -114,11 +150,23 @@ func (s *Server) handleConn(conn net.Conn) {
 
 func run() error {
 
-	server := NewServer(Config{})
+	go func() {
+		server := NewServer(Config{})
 
-	err := server.Start()
-	if err != nil {
-		return err
-	}
+		err := server.Start()
+		if err != nil {
+			log.Fatal(err)
+		}
+	}()
+
+	time.Sleep(time.Second)
+
+	client := client.New("localhost:5001")
+
+	client.Set(context.Background(), "foo", "bar")
+
+	// Blocking so the program won't exit
+	select {}
+
 	return nil
 }
