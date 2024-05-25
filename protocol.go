@@ -12,6 +12,7 @@ import (
 
 const (
 	CommandSet = "SET"
+	CommandGet = "GET"
 )
 
 // Redis commands are used to perform some operations on Redis server.
@@ -22,8 +23,13 @@ type Command interface {
 
 // SetCommand implements the redis set command
 type SetCommand struct {
-	key string
-	val string
+	key []byte
+	val []byte
+}
+
+type GetCommand struct {
+	key []byte
+	val []byte
 }
 
 func parseCommand(raw string) (Command, error) {
@@ -56,11 +62,23 @@ func parseCommand(raw string) (Command, error) {
 					return nil, errors.New("set command expects 2 params")
 				}
 				cmd = SetCommand{
-					key: v.Array()[1].String(),
-					val: v.Array()[2].String(),
+					key: v.Array()[1].Bytes(),
+					val: v.Array()[2].Bytes(),
 				}
 
 				return cmd, nil
+
+			case CommandGet:
+				if len(v.Array()) != 2 {
+					return nil, errors.New("get command expects 1 params")
+				}
+
+				cmd = GetCommand{
+					key: v.Array()[1].Bytes(),
+				}
+
+				return cmd, nil
+
 			default:
 
 			}

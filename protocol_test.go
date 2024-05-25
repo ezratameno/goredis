@@ -17,5 +17,5 @@ func TestProtocol(t *testing.T) {
 	}
 
 	setCmd := cmd.(SetCommand)
-	require.Equal(t, SetCommand{key: "foo", val: "bar"}, setCmd)
+	require.Equal(t, SetCommand{key: []byte("foo"), val: []byte("bar")}, setCmd)
 }

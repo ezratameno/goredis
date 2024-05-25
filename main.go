@@ -39,6 +39,9 @@ type Server struct {
 	quitCh chan struct{}
 
 	msgCh chan []byte
+
+	// key value store
+	kv *KV
 }
 
 func NewServer(cfg Config) *Server {
@@ -53,6 +56,7 @@ func NewServer(cfg Config) *Server {
 		addPeerCh: make(chan *Peer),
 		quitCh:    make(chan struct{}),
 		msgCh:     make(chan []byte),
+		kv:        NewKeyVal(),
 	}
 }
 
@@ -125,8 +129,11 @@ func (s *Server) handleRawMessage(rawMsg []byte) error {
 	// check the type of the command
 	switch v := cmd.(type) {
 	case SetCommand:
-
 		slog.Info("somebody want to set a key to the hash table", "key", v.key, "val", v.val)
+		return s.kv.Set(v.key, v.val)
+
+	case GetCommand:
+
 	}
 
 	return nil
@@ -149,9 +156,9 @@ func (s *Server) handleConn(conn net.Conn) {
 }
 
 func run() error {
+	server := NewServer(Config{})
 
 	go func() {
-		server := NewServer(Config{})
 
 		err := server.Start()
 		if err != nil {
@@ -159,14 +166,23 @@ func run() error {
 		}
 	}()
 
-	time.Sleep(time.Second)
+	// wait for the server to boot
+	time.Sleep(time.Second * 2)
 
-	client := client.New("localhost:5001")
+	for i := 0; i < 10; i++ {
+		client, err := client.New("localhost:5001")
+		if err != nil {
+			return err
+		}
+		err = client.Set(context.Background(), fmt.Sprintf("foo_%d", i), fmt.Sprintf("bar_%d", i))
+		if err != nil {
+			return err
+		}
+	}
 
-	client.Set(context.Background(), "foo", "bar")
+	time.Sleep(2 * time.Second)
 
-	// Blocking so the program won't exit
-	select {}
+	fmt.Printf("%+v\n", server.kv.data)
 
 	return nil
 }

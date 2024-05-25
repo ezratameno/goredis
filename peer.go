@@ -19,8 +19,9 @@ func NewPeer(conn net.Conn, msgCh chan []byte) *Peer {
 
 func (p *Peer) readLoop() error {
 
-	buf := make([]byte, 1024)
 	for {
+		buf := make([]byte, 4096)
+
 		n, err := p.conn.Read(buf)
 		if err != nil {
 			return err
