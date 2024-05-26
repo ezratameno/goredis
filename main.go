@@ -28,6 +28,11 @@ type Config struct {
 	ListenAddr string
 }
 
+type Message struct {
+	data []byte
+	peer *Peer
+}
+
 type Server struct {
 	Config
 	ln net.Listener
@@ -38,7 +43,7 @@ type Server struct {
 
 	quitCh chan struct{}
 
-	msgCh chan []byte
+	msgCh chan Message
 
 	// key value store
 	kv *KV
@@ -55,7 +60,7 @@ func NewServer(cfg Config) *Server {
 		peers:     make(map[*Peer]bool),
 		addPeerCh: make(chan *Peer),
 		quitCh:    make(chan struct{}),
-		msgCh:     make(chan []byte),
+		msgCh:     make(chan Message),
 		kv:        NewKeyVal(),
 	}
 }
@@ -109,7 +114,7 @@ func (s *Server) loop() {
 		// Read from the peers
 		case rawMsg := <-s.msgCh:
 
-			err := s.handleRawMessage(rawMsg)
+			err := s.handleMessage(rawMsg)
 			if err != nil {
 				slog.Error("raw message error", "err", err)
 			}
@@ -119,9 +124,9 @@ func (s *Server) loop() {
 }
 
 // handleRawMessage handles the raw message from the peer.
-func (s *Server) handleRawMessage(rawMsg []byte) error {
+func (s *Server) handleMessage(msg Message) error {
 
-	cmd, err := parseCommand(string(rawMsg))
+	cmd, err := parseCommand(string(msg.data))
 	if err != nil {
 		return err
 	}
@@ -133,6 +138,18 @@ func (s *Server) handleRawMessage(rawMsg []byte) error {
 		return s.kv.Set(v.key, v.val)
 
 	case GetCommand:
+		slog.Info("somebody want to get a key from the hash table", "key", v.key, "val", v.val)
+		val, ok := s.kv.Get(v.key)
+		if !ok {
+			return fmt.Errorf("key %s not found", v.key)
+		}
+
+		// Send the value of the key to the connection
+		_, err := msg.peer.Send(val)
+		if err != nil {
+			slog.Error("peer send error", "err", err)
+			break
+		}
 
 	}
 
@@ -178,6 +195,15 @@ func run() error {
 		if err != nil {
 			return err
 		}
+
+		time.Sleep(1 * time.Second)
+
+		value, err := client.Get(context.Background(), fmt.Sprintf("foo_%d", i))
+		if err != nil {
+			return err
+		}
+
+		fmt.Println("value", value)
 	}
 
 	time.Sleep(2 * time.Second)
