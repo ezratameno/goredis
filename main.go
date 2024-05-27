@@ -106,6 +106,8 @@ func (s *Server) loop() {
 
 		// Add the peer
 		case peer := <-s.addPeerCh:
+			slog.Info("new peer connected", "remoteAddr", peer.conn.RemoteAddr())
+
 			s.peers[peer] = true
 
 		// Read from the peers
@@ -154,8 +156,6 @@ func (s *Server) handleConn(conn net.Conn) {
 	// Add the peer
 	peer := NewPeer(conn, s.msgCh)
 	s.addPeerCh <- peer
-
-	slog.Info("new peer connected", "remoteAddr", peer.conn.RemoteAddr())
 
 	// read from the new peer
 	err := peer.readLoop()

@@ -8,7 +8,7 @@ build:
 	@go build -o bin/goredis .
 
 test:
-	@ go test ./...
+	@ go test -count=1 ./... 
 telnet:
 	@telnet localhost 5001
 

@@ -26,6 +26,7 @@ func (p *Peer) Send(msg []byte) (int, error) {
 	return p.conn.Write(msg)
 }
 
+// readLoop reads commands that come from the peer
 func (p *Peer) readLoop() error {
 	rd := resp.NewReader(p.conn)
 
