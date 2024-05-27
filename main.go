@@ -1,15 +1,12 @@
 package main
 
 import (
-	"context"
+	"flag"
 	"fmt"
 	"log"
 	"log/slog"
 	"net"
 	"os"
-	"time"
-
-	"github.com/ezratameno/goredis/client"
 )
 
 func main() {
@@ -29,7 +26,7 @@ type Config struct {
 }
 
 type Message struct {
-	data []byte
+	cmd  Command
 	peer *Peer
 }
 
@@ -126,19 +123,14 @@ func (s *Server) loop() {
 // handleRawMessage handles the raw message from the peer.
 func (s *Server) handleMessage(msg Message) error {
 
-	cmd, err := parseCommand(string(msg.data))
-	if err != nil {
-		return err
-	}
-
 	// check the type of the command
-	switch v := cmd.(type) {
+	switch v := msg.cmd.(type) {
 	case SetCommand:
 		slog.Info("somebody want to set a key to the hash table", "key", v.key, "val", v.val)
 		return s.kv.Set(v.key, v.val)
 
 	case GetCommand:
-		slog.Info("somebody want to get a key from the hash table", "key", v.key, "val", v.val)
+		slog.Info("somebody want to get a key from the hash table", "key", v.key)
 		val, ok := s.kv.Get(v.key)
 		if !ok {
 			return fmt.Errorf("key %s not found", v.key)
@@ -173,42 +165,17 @@ func (s *Server) handleConn(conn net.Conn) {
 }
 
 func run() error {
-	server := NewServer(Config{})
 
-	go func() {
+	listenAddr := flag.String("listenAddr", defaultListenAddr, "listen address of the goredis server")
+	flag.Parse()
+	server := NewServer(Config{
+		ListenAddr: *listenAddr,
+	})
 
-		err := server.Start()
-		if err != nil {
-			log.Fatal(err)
-		}
-	}()
-
-	// wait for the server to boot
-	time.Sleep(time.Second * 2)
-
-	for i := 0; i < 10; i++ {
-		client, err := client.New("localhost:5001")
-		if err != nil {
-			return err
-		}
-		err = client.Set(context.Background(), fmt.Sprintf("foo_%d", i), fmt.Sprintf("bar_%d", i))
-		if err != nil {
-			return err
-		}
-
-		time.Sleep(1 * time.Second)
-
-		value, err := client.Get(context.Background(), fmt.Sprintf("foo_%d", i))
-		if err != nil {
-			return err
-		}
-
-		fmt.Println("value", value)
+	err := server.Start()
+	if err != nil {
+		log.Fatal(err)
 	}
-
-	time.Sleep(2 * time.Second)
-
-	fmt.Printf("%+v\n", server.kv.data)
 
 	return nil
 }

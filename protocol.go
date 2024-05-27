@@ -29,7 +29,6 @@ type SetCommand struct {
 
 type GetCommand struct {
 	key []byte
-	val []byte
 }
 
 func parseCommand(raw string) (Command, error) {

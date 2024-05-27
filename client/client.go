@@ -58,6 +58,7 @@ func (c *Client) Get(ctx context.Context, key string) (string, error) {
 		return "", err
 	}
 
+	// Read the result from the server
 	b := make([]byte, 1024)
 	n, err := c.conn.Read(b)
 
