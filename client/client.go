@@ -27,14 +27,14 @@ func New(addr string) (*Client, error) {
 }
 
 // Set does the set request
-func (c *Client) Set(ctx context.Context, key string, val string) error {
+func (c *Client) Set(ctx context.Context, key string, val any) error {
 
 	var buf bytes.Buffer
 	wr := resp.NewWriter(&buf)
 	wr.WriteArray([]resp.Value{
 		resp.StringValue("SET"),
 		resp.StringValue(key),
-		resp.StringValue(val)})
+		resp.AnyValue(val)})
 
 	_, err := c.conn.Write(buf.Bytes())
 	if err != nil {
