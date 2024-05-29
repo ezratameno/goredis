@@ -49,6 +49,8 @@ func TestServerWithMultiClients(t *testing.T) {
 
 	wg.Wait()
 
+	time.Sleep(500 * time.Microsecond)
+
 	if len(server.peers) != 0 {
 		t.Fatalf("expected 0 peers but got %d ", len(server.peers))
 	}
