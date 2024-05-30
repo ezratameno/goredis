@@ -6,8 +6,32 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/redis/go-redis/v9"
+
 	"github.com/stretchr/testify/require"
 )
+
+func TestNewClientRedisClient(t *testing.T) {
+	rdb := redis.NewClient(&redis.Options{
+		Addr:     "localhost:5001",
+		Password: "", // no password set
+		DB:       0,  // use default DB
+	})
+
+	ctx := context.Background()
+	err := rdb.Set(ctx, "key", "value", 0).Err()
+	if err != nil {
+		panic(err)
+	}
+
+	val, err := rdb.Get(ctx, "key").Result()
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println("key", val)
+
+}
 
 func TestNewClient1(t *testing.T) {
 	client, err := New("localhost:5001")
