@@ -18,15 +18,19 @@ func TestNewClientRedisClient(t *testing.T) {
 		DB:       0,  // use default DB
 	})
 
+	defer rdb.Close()
+
+	fmt.Printf("%+v\n", rdb)
+
 	ctx := context.Background()
 	err := rdb.Set(ctx, "key", "value", 0).Err()
 	if err != nil {
-		panic(err)
+		panic(fmt.Errorf("set: %w", err))
 	}
 
 	val, err := rdb.Get(ctx, "key").Result()
 	if err != nil {
-		panic(err)
+		panic(fmt.Errorf("get: %w", err))
 	}
 
 	fmt.Println("key", val)

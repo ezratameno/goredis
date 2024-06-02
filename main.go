@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net"
 	"os"
+	"reflect"
 )
 
 func main() {
@@ -132,11 +133,21 @@ func (s *Server) loop() {
 // handleRawMessage handles the raw message from the peer.
 func (s *Server) handleMessage(msg Message) error {
 
+	slog.Info("got message form client", "type", reflect.TypeOf(msg.cmd))
 	// check the type of the command
 	switch v := msg.cmd.(type) {
 	case SetCommand:
 		slog.Info("somebody want to set a key to the hash table", "key", v.key, "val", v.val)
-		return s.kv.Set(v.key, v.val)
+		err := s.kv.Set(v.key, v.val)
+
+		if err != nil {
+			return err
+		}
+
+		_, err = msg.peer.Send([]byte("OK\r\n"))
+		if err != nil {
+			return fmt.Errorf("peer send error: %w", err)
+		}
 
 	case GetCommand:
 		slog.Info("somebody want to get a key from the hash table", "key", v.key)
@@ -148,10 +159,24 @@ func (s *Server) handleMessage(msg Message) error {
 		// Send the value of the key to the connection
 		_, err := msg.peer.Send(val)
 		if err != nil {
-			slog.Error("peer send error", "err", err)
-			break
+			return fmt.Errorf("peer send error: %w", err)
 		}
 
+	case HelloCommand:
+		fmt.Println("this is the hello command from the client:", v.value)
+
+		// Send the server spec to the client
+		spec := map[string]string{
+			"server": "redis",
+			"role":   "master",
+		}
+		_, err := msg.peer.Send((respWriteMap(spec)))
+		if err != nil {
+			return fmt.Errorf("peer send error: %w", err)
+		}
+
+	default:
+		panic("this command is not being handled")
 	}
 
 	return nil

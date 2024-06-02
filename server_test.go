@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"log"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/ezratameno/goredis/client"
 	"github.com/stretchr/testify/require"
+	"github.com/tidwall/resp"
 )
 
 func TestServerWithMultiClients(t *testing.T) {
@@ -54,5 +56,22 @@ func TestServerWithMultiClients(t *testing.T) {
 	if len(server.peers) != 0 {
 		t.Fatalf("expected 0 peers but got %d ", len(server.peers))
 	}
+
+}
+
+func TestFooBar(t *testing.T) {
+	buf := bytes.Buffer{}
+	rw := resp.NewWriter(&buf)
+
+	rw.WriteString("OK")
+
+	fmt.Println(buf.String())
+	in := map[string]string{
+		"first":  "1",
+		"second": "2",
+	}
+	out := respWriteMap(in)
+
+	fmt.Println(out)
 
 }

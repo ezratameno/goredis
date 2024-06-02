@@ -2,17 +2,13 @@ package main
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
-	"io"
-	"log"
-
-	"github.com/tidwall/resp"
 )
 
 const (
-	CommandSet = "SET"
-	CommandGet = "GET"
+	CommandSet   = "SET"
+	CommandGet   = "GET"
+	CommandHELLO = "hello"
 )
 
 // Redis commands are used to perform some operations on Redis server.
@@ -21,70 +17,32 @@ const (
 type Command interface {
 }
 
-// SetCommand implements the redis set command
+// SetCommand set a key value in the store.
 type SetCommand struct {
 	key []byte
 	val []byte
 }
 
+// GetCommand returns the value of the key from the store.
 type GetCommand struct {
 	key []byte
 }
 
-func parseCommand(raw string) (Command, error) {
+// HELLO always replies with a list of current server and connection properties,
+// such as: versions, modules loaded, client ID, replication role and so forth.
+type HelloCommand struct {
+	value string
+}
 
-	rd := resp.NewReader(bytes.NewBufferString(raw))
-	var cmd Command
+func respWriteMap(m map[string]string) []byte {
+	buf := bytes.Buffer{}
 
-	for {
-		v, _, err := rd.ReadValue()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			log.Fatal(err)
-		}
+	buf.WriteString("%" + fmt.Sprintf("%d\r\n", len(m)))
 
-		if v.Type() == resp.Array {
-
-			if len(v.Array()) == 0 {
-				return nil, errors.New("empty array command not allowed, expects at lease one command")
-			}
-
-			commandName := v.Array()[0]
-
-			switch commandName.String() {
-
-			case CommandSet:
-
-				if len(v.Array()) != 3 {
-					return nil, errors.New("set command expects 2 params")
-				}
-				cmd = SetCommand{
-					key: v.Array()[1].Bytes(),
-					val: v.Array()[2].Bytes(),
-				}
-
-				return cmd, nil
-
-			case CommandGet:
-				if len(v.Array()) != 2 {
-					return nil, errors.New("get command expects 1 params")
-				}
-
-				cmd = GetCommand{
-					key: v.Array()[1].Bytes(),
-				}
-
-				return cmd, nil
-
-			default:
-
-			}
-
-		}
+	for k, v := range m {
+		buf.WriteString(fmt.Sprintf("+%s\r\n", k))
+		buf.WriteString(fmt.Sprintf(":%s\r\n", v))
 	}
 
-	return cmd, fmt.Errorf("invalid or unknown command received: %s", raw)
-
+	return buf.Bytes()
 }

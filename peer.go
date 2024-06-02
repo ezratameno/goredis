@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"net"
@@ -28,7 +29,7 @@ func (p *Peer) Send(msg []byte) (int, error) {
 	return p.conn.Write(msg)
 }
 
-// readLoop reads commands that come from the peer
+// readLoop reads and parse the commands that come from the peer, and returns the command to the server.
 func (p *Peer) readLoop() error {
 	rd := resp.NewReader(p.conn)
 
@@ -44,6 +45,8 @@ func (p *Peer) readLoop() error {
 			log.Fatal(err)
 		}
 
+		fmt.Println(v.Type().String())
+
 		if v.Type() == resp.Array {
 
 			if len(v.Array()) == 0 {
@@ -52,6 +55,7 @@ func (p *Peer) readLoop() error {
 
 			commandName := v.Array()[0]
 
+			var cmd Command
 			switch commandName.String() {
 
 			case CommandSet:
@@ -59,14 +63,9 @@ func (p *Peer) readLoop() error {
 				if len(v.Array()) != 3 {
 					return errors.New("set command expects 2 params")
 				}
-				cmd := SetCommand{
+				cmd = SetCommand{
 					key: v.Array()[1].Bytes(),
 					val: v.Array()[2].Bytes(),
-				}
-
-				p.msgCh <- Message{
-					cmd:  cmd,
-					peer: p,
 				}
 
 			case CommandGet:
@@ -74,18 +73,28 @@ func (p *Peer) readLoop() error {
 					return errors.New("get command expects 1 params")
 				}
 
-				cmd := GetCommand{
+				cmd = GetCommand{
 					key: v.Array()[1].Bytes(),
 				}
 
-				// Send the command to the server
-				p.msgCh <- Message{
-					cmd:  cmd,
-					peer: p,
+			case CommandHELLO:
+
+				if len(v.Array()) != 2 {
+					return errors.New("hello command expects 1 params")
+				}
+
+				cmd = HelloCommand{
+					value: v.Array()[1].String(),
 				}
 
 			default:
+				fmt.Printf("got unknown command => %v\n", v.Array())
+			}
 
+			// Send the command to the server
+			p.msgCh <- Message{
+				cmd:  cmd,
+				peer: p,
 			}
 
 		}
