@@ -45,8 +45,6 @@ func (p *Peer) readLoop() error {
 			log.Fatal(err)
 		}
 
-		fmt.Println(v.Type().String())
-
 		if v.Type() == resp.Array {
 
 			if len(v.Array()) == 0 {
@@ -96,7 +94,6 @@ func (p *Peer) readLoop() error {
 				cmd:  cmd,
 				peer: p,
 			}
-
 		}
 	}
 

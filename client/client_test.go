@@ -24,14 +24,10 @@ func TestNewClientRedisClient(t *testing.T) {
 
 	ctx := context.Background()
 	err := rdb.Set(ctx, "key", "value", 0).Err()
-	if err != nil {
-		panic(fmt.Errorf("set: %w", err))
-	}
+	require.NoError(t, err, "set error")
 
 	val, err := rdb.Get(ctx, "key").Result()
-	if err != nil {
-		panic(fmt.Errorf("get: %w", err))
-	}
+	require.NoError(t, err, "get error")
 
 	fmt.Println("key", val)
 
