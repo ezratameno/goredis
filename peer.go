@@ -85,6 +85,11 @@ func (p *Peer) readLoop() error {
 					value: v.Array()[1].String(),
 				}
 
+			case CommandClient:
+				cmd = ClientCommand{
+					value: v.Array()[1].String(),
+				}
+
 			default:
 				fmt.Printf("got unknown command => %v\n", v.Array())
 			}

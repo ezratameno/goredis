@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"flag"
 	"fmt"
 	"log"
@@ -8,6 +9,8 @@ import (
 	"net"
 	"os"
 	"reflect"
+
+	"github.com/tidwall/resp"
 )
 
 func main() {
@@ -133,7 +136,7 @@ func (s *Server) loop() {
 // handleRawMessage handles the raw message from the peer.
 func (s *Server) handleMessage(msg Message) error {
 
-	slog.Info("got message form client", "type", reflect.TypeOf(msg.cmd))
+	slog.Info("got message from client", "type", reflect.TypeOf(msg.cmd))
 	// check the type of the command
 	switch v := msg.cmd.(type) {
 	case SetCommand:
@@ -144,7 +147,11 @@ func (s *Server) handleMessage(msg Message) error {
 			return err
 		}
 
-		_, err = msg.peer.Send([]byte("OK\r\n"))
+		buf := &bytes.Buffer{}
+		rw := resp.NewWriter(buf)
+		rw.WriteString("OK")
+
+		_, err = msg.peer.Send(buf.Bytes())
 		if err != nil {
 			return fmt.Errorf("peer send error: %w", err)
 		}
@@ -156,8 +163,12 @@ func (s *Server) handleMessage(msg Message) error {
 			return fmt.Errorf("key %s not found", v.key)
 		}
 
+		buf := &bytes.Buffer{}
+		rw := resp.NewWriter(buf)
+		rw.WriteBytes(val)
+
 		// Send the value of the key to the connection
-		_, err := msg.peer.Send(val)
+		_, err := msg.peer.Send(buf.Bytes())
 		if err != nil {
 			return fmt.Errorf("peer send error: %w", err)
 		}
@@ -178,8 +189,19 @@ func (s *Server) handleMessage(msg Message) error {
 			return fmt.Errorf("peer send error: %w", err)
 		}
 
+	case ClientCommand:
+		buf := &bytes.Buffer{}
+		rw := resp.NewWriter(buf)
+		rw.WriteString("OK")
+
+		_, err := msg.peer.Send(buf.Bytes())
+		if err != nil {
+			return err
+		}
+		fmt.Printf("client command: %+v\n", v)
+
 	default:
-		panic("this command is not being handled")
+		fmt.Printf("unknown command => %+v\n", msg.cmd)
 	}
 
 	return nil

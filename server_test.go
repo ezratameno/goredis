@@ -4,56 +4,44 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"sync"
 	"testing"
 	"time"
 
-	"github.com/ezratameno/goredis/client"
+	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/require"
 )
 
-func TestServerWithMultiClients(t *testing.T) {
+func TestOfficialRedisClient(t *testing.T) {
 
-	server := NewServer(Config{})
+	listernAddr := "5001"
+	server := NewServer(Config{
+		ListenAddr: fmt.Sprintf(":%s", listernAddr),
+	})
 
 	go func() {
-
 		log.Fatal(server.Start())
 	}()
 
-	time.Sleep(1 * time.Second)
+	time.Sleep(500 * time.Millisecond)
 
-	nClients := 10
-	var wg sync.WaitGroup
-	for i := 0; i < nClients; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			client, err := client.New("localhost:5001")
-			require.NoError(t, err)
+	rdb := redis.NewClient(&redis.Options{
+		Addr:     fmt.Sprintf("localhost:%s", listernAddr),
+		Password: "", // no password set
+		DB:       0,  // use default DB
+	})
 
-			defer client.Close()
+	defer rdb.Close()
 
-			key := fmt.Sprintf("client_%d", i)
-			value := fmt.Sprintf("client_bar_%d", i)
-			err = client.Set(context.Background(), key, value)
-			require.NoError(t, err)
+	key := "foo"
+	val := "bar"
+	ctx := context.Background()
+	err := rdb.Set(ctx, key, val, 0).Err()
+	require.NoError(t, err, "set error")
 
-			val, err := client.Get(context.Background(), key)
-			require.NoError(t, err)
+	newVal, err := rdb.Get(ctx, key).Result()
+	require.NoError(t, err, "get error")
 
-			fmt.Printf("client %d got this value back => %s\n", i, val)
-		}()
-
-	}
-
-	wg.Wait()
-
-	time.Sleep(500 * time.Microsecond)
-
-	if len(server.peers) != 0 {
-		t.Fatalf("expected 0 peers but got %d ", len(server.peers))
-	}
+	require.Equal(t, val, newVal)
 
 }
 

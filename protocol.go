@@ -8,9 +8,10 @@ import (
 )
 
 const (
-	CommandSet   = "set"
-	CommandGet   = "GET"
-	CommandHELLO = "hello"
+	CommandSet    = "set"
+	CommandGet    = "get"
+	CommandHELLO  = "hello"
+	CommandClient = "client"
 )
 
 // Redis commands are used to perform some operations on Redis server.
@@ -33,6 +34,10 @@ type GetCommand struct {
 // HELLO always replies with a list of current server and connection properties,
 // such as: versions, modules loaded, client ID, replication role and so forth.
 type HelloCommand struct {
+	value string
+}
+
+type ClientCommand struct {
 	value string
 }
 
